@@ -30,20 +30,26 @@
             <p class="text-gray-500 mt-2">欢迎使用！请完成抢票配置</p>
         </div>
 
-        <!-- 修正表单，指向后端的 /start 路由 -->
         <form id="config-form" action="/start" method="POST" class="space-y-6">
 
-            <!-- 登录方式 -->
+            <div class="bg-red-50 border-l-4 border-red-400 text-red-800 p-4 rounded-lg text-sm">
+                <p class="font-bold">安全提示：</p>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>本项目完全开源，源程序公开可查，<strong class="font-semibold">不保存任何用户数据</strong>。</li>
+                    <li>为防止在传播过程被恶意修改，<strong class="font-semibold text-blue-600">推荐选择【手动登录】</strong>。</li>
+                    <li>请务必保护好自己的密码！</li>
+                    <li class="mt-2">请从唯一官方地址下载本程序：<br><a href="https://github.com/9900ff/SZU-badminton-GO" target="_blank" class="text-indigo-600 hover:underline break-all">https://github.com/9900ff/SZU-badminton-GO</a></li>
+                </ul>
+            </div>
+
             <div>
                 <label for="login-method" class="block text-sm font-medium text-gray-700">登录方式</label>
                 <select id="login-method" name="login_method" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <!-- 使用Jinja2模板判断默认选中项 -->
-                    <option value="auto" {% if config.get('username') or not config %}selected{% endif %}>自动登录 (推荐)</option>
-                    <option value="manual" {% if not config.get('username') and config %}selected{% endif %}>手动登录</option>
+                    <option value="auto" {% if config.get('username') or not config %}selected{% endif %}>自动登录</option>
+                    <option value="manual" {% if not config.get('username') and config %}selected{% endif %}>手动登录 (推荐)</option>
                 </select>
             </div>
 
-            <!-- 自动登录的专属选项 -->
             <div id="auto-login-fields" class="space-y-6">
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">学号</label>
@@ -63,7 +69,6 @@
 
             <hr class="my-6 border-gray-200">
 
-            <!-- 核心预约配置 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label for="campus" class="block text-sm font-medium text-gray-700">校区</label>
@@ -76,7 +81,8 @@
                     <label for="sport" class="block text-sm font-medium text-gray-700">运动项目</label>
                     <select id="sport" name="ball" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option {% if config.get('ball') == '羽毛球' %}selected{% endif %}>羽毛球</option>
-                        <option {% if config.get('ball') == '网球' %}selected{% endif %}>网球</option>
+                        <!-- 【修改】将网球选项改为不可选的提示 -->
+                        <option disabled>其他运动项目需求不大，暂不开发</option>
                     </select>
                 </div>
             </div>
@@ -84,14 +90,14 @@
             <div>
                 <label for="venues" class="block text-sm font-medium text-gray-700">预约场馆</label>
                 <select id="venues" name="venues" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <!-- JS会根据校区和球类动态填充，并选中旧配置 -->
+                    <!-- JS会动态填充 -->
                 </select>
             </div>
 
             <div>
                 <label for="appointment" class="block text-sm font-medium text-gray-700">预约时间</label>
                 <select id="appointment" name="appointment" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <!-- JS会生成所有时间选项，并选中旧配置 -->
+                    <!-- JS会动态填充 -->
                 </select>
             </div>
 
@@ -151,14 +157,13 @@
             const venuesSelect = document.getElementById('venues');
             const appointmentSelect = document.getElementById('appointment');
 
+            // 【修改】移除了与 "网球" 相关的数据
             const venueData = {
                 '粤海校区': {
-                    '羽毛球': ['全部', '运动广场东馆羽毛球场', '运动广场东馆羽毛球场（教工专场）'],
-                    '网球': ['全部', '运动广场海边网球场', '北区网球场']
+                    '羽毛球': ['全部', '运动广场东馆羽毛球场', '运动广场东馆羽毛球场（教工专场）']
                 },
                 '丽湖校区': {
-                    '羽毛球': ['全部', '至畅体育馆', '至快体育馆'],
-                    '网球': ['全部', '北区体育场网球场', '南区室外网球场']
+                    '羽毛球': ['全部', '至畅体育馆', '至快体育馆']
                 }
             };
 
@@ -172,7 +177,6 @@
                     const option = document.createElement('option');
                     option.value = venue;
                     option.textContent = venue;
-                    // 使用 Jinja2 的值来做初始选中
                     if (venue === oldConfig.venues) {
                         option.selected = true;
                     }
@@ -184,12 +188,11 @@
                 for (let i = 8; i <= 21; i++) {
                     const start = i.toString().padStart(2, '0');
                     const end = (i + 1).toString().padStart(2, '0');
-                    // 修正 Bug：加上 (可预约)
                     const timeString = `${start}:00-${end}:00(可预约)`;
 
                     const option = document.createElement('option');
                     option.value = timeString;
-                    option.textContent = timeString.replace('(可预约)', ''); // 页面上不显示(可预约)
+                    option.textContent = timeString.replace('(可预约)', '');
                     if (timeString === oldConfig.appointment) {
                         option.selected = true;
                     }
