@@ -316,7 +316,7 @@ def run_grabbing_process(config):
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
 
     # 你可自行调整提前的秒数，这里设置为提前90秒
-    PRE_LOGIN_SECONDS = 90
+    PRE_LOGIN_SECONDS = 11190
     PRE_LOGIN_TIME = (datetime.strptime(ACTION_TIME_STR, "%H:%M:%S") - timedelta(seconds=PRE_LOGIN_SECONDS)).time()
 
     print(f"脚本已启动。")
@@ -336,7 +336,7 @@ def run_grabbing_process(config):
         return  # WebDriver启动失败，退出
 
     try:
-        login(config["username"], config["password"])
+        login(config["学号"], config["登录密码"])
 
         # 4. 阶段三：等待"抢票执行时间"
         print(f"登录成功，等待到达 {ACTION_TIME} 开始抢票...")
@@ -348,9 +348,9 @@ def run_grabbing_process(config):
             time.sleep(0.5)  # 高精度等待
 
         # 5. 阶段四：执行抢票
-        select_venue(config["campus"], config["ball"], config["appointment"], config["venues"])
-        add_companions(config["companions_id"])
-        pay(config["payment_password"])
+        select_venue(config["校区"], config["球类"], config["预约时间"], config["预约场馆"])
+        add_companions(config["同行人"])
+        pay(config["支付密码"])
 
         print('预约并支付成功！请登录eHall查看确认。')
         time.sleep(10)  # 留出时间查看结果
@@ -365,7 +365,7 @@ def run_grabbing_process(config):
 
 if __name__ == "__main__":
     # 加载配置
-    config = load_config("购票信息.txt")
+    config = load_config("information.txt")
 
     # 仅在配置加载成功时运行主程序
     if config:
