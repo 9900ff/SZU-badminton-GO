@@ -204,9 +204,29 @@ def run_grabbing_process(config):
                 return
 
         print(f"\n登录流程完毕，等待到达 {ACTION_TIME} 开始抢票...")
+
+        # 定义高频检查的阈值
+        high_freq_seconds = 3
+        # 使用 datetime.min 来创建一个基础日期，以便进行时间运算
+        high_freq_threshold = (
+                    datetime.combine(datetime.min, ACTION_TIME) - timedelta(seconds=high_freq_seconds)).time()
+
         while True:
-            if datetime.now().time() >= ACTION_TIME: break
-            time.sleep(0.01)
+            now_time = datetime.now().time()
+            if now_time >= ACTION_TIME:
+                # 清除最后一次打印的等待信息
+                sys.stdout.write("\r" + " " * 80 + "\r")
+                break
+
+            # 检查是否进入高频检查窗口
+            if now_time >= high_freq_threshold:
+                # 最后的几秒，高频检查
+                sys.stdout.write(f"\r进入最后 {high_freq_seconds} 秒，准备抢...")
+                time.sleep(0.01)
+            else:
+                # 距离较远，低频检查
+                sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 距离抢票时间较远...")
+                time.sleep(1)
 
         select_venue(config["campus"], config["ball"], config["appointment"], config["venues"])
         add_companions(config.get("companions_id", []))
