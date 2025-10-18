@@ -1,6 +1,6 @@
 @echo off
-REM 切换控制台编码为 UTF-8，以正确显示中文
 chcp 65001 > nul
+REM 切换控制台编码为 UTF-8，以正确显示中文
 title 深大抢场助手 - 启动器
 
 echo 正在准备启动环境...
