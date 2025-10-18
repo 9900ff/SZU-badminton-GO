@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException, StaleElementReferenceException
 
 # 将脚本当前所在的目录添加到 Python 的模块搜索路径中
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -43,22 +43,33 @@ def login(username, password):
         sys.exit(1)
 
 
-def find_and_click_available_court(config):
-    """在当前页面寻找并点击一个可预约的场地，返回是否成功"""
+def find_and_click_available_court(config, preferred_court=None):
+    """在当前页面寻找并点击一个可预约的场地，返回场地信息字符串或None"""
     try:
-        wait = WebDriverWait(driver, 5)  # 检查场地的等待时间可以短一些
+        wait = WebDriverWait(driver, 5)
         group_2_elements = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'group-2')))
 
+        # --- 第一优先级，尝试粘性场地 ---
+        if preferred_court:
+            print(f" -> 优先尝试粘性场地: {preferred_court}")
+            for group_2 in group_2_elements:
+                element = group_2.find_element(By.CLASS_NAME, 'element')
+                element_text = element.text
+                if preferred_court in element_text and '可预约' in element_text:
+                    group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
+                    print(f" -> 成功锁定【粘性】场地：{element_text}")
+                    return element_text
+            print(f" -> 粘性场地 {preferred_court} 不可用，开始随机查找...")
+
+        # --- 第二优先级，随机查找热门场地 ---
         if config["campus"] == "粤海校区":
             priority_courts = ['C5', 'C6', 'C7', 'C8', 'C4', 'C3', 'C2', 'C1', 'B5', 'B6', 'B7', 'B8', 'B4', 'B3', 'B2',
                                'B1', 'D5', 'D6', 'D7', 'D8', 'D4', 'D3', 'D2', 'D1', 'A5', 'A6', 'A7', 'A8', 'A4', 'A3',
                                'A2', 'A1']
         else:
             priority_courts = ['1号', '2号', '3号', '4号', '5号', '6号', '7号', '8号', '9号', '10号', '11号', '12号']
-
         random.shuffle(priority_courts)
 
-        # 按随机顺序查找优先场地
         for court_name in priority_courts:
             for group_2 in group_2_elements:
                 element = group_2.find_element(By.CLASS_NAME, 'element')
@@ -66,19 +77,20 @@ def find_and_click_available_court(config):
                 if court_name in element_text and '可预约' in element_text:
                     group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
                     print(f" -> 成功选择一个【随机优先】场地：{element_text}")
-                    return True
+                    return element_text
 
-        # 如果优先场地都没找到，尝试任意一个可用的
+        # --- 第三优先级，选择任意备选场地 ---
         for group_2 in group_2_elements:
             element = group_2.find_element(By.CLASS_NAME, 'element')
-            if '可预约' in element.text and '场' in element.text:
+            element_text = element.text
+            if '可预约' in element.text and '场' in element_text:
                 group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
-                print(f" -> 成功选择一个【备选】场地：{element.text}")
-                return True
+                print(f" -> 成功选择一个【备选】场地：{element_text}")
+                return element_text
 
-        return False  # 未找到任何可用场地
+        return None
     except TimeoutException:
-        return False  # 连场地列表都没加载出来
+        return None
 
 
 def add_companions(companions_id):
@@ -105,9 +117,7 @@ def pay(payment_password):
     print("正在处理支付...")
     try:
         wait = WebDriverWait(driver, 20)
-        # 等待页面加载出“未支付”按钮
         wait.until(EC.visibility_of_element_located((By.XPATH, "//a[text()='未支付']"))).click()
-
         initial_window_count = len(driver.window_handles)
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), '支付')]"))).click()
         wait.until(EC.number_of_windows_to_be(initial_window_count + 1))
@@ -120,12 +130,10 @@ def pay(payment_password):
             driver.find_element(By.CLASS_NAME, f"key-button.key-{digit}").click()
         wait.until(EC.visibility_of_element_located((By.XPATH, "//button[text()='确认支付']"))).click()
         print("支付密码已输入，确认支付。")
-        # 支付完成后，关闭支付窗口并切回主窗口
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
     except Exception as e:
         print(f"支付时发生错误: {e}")
-        # 如果支付失败，确保切换回主窗口
         if len(driver.window_handles) > 1:
             driver.close()
             driver.switch_to.window(driver.window_handles[0])
@@ -152,7 +160,7 @@ def initialize_driver():
 
 
 def run_grabbing_process(config):
-    """接管浏览器，执行抢票的主流程"""
+    """接管浏览器，执行抢票的主流程 (时间优先，粘性场地)"""
     global driver
     ACTION_TIME_STR = "12:30:00"
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
@@ -195,62 +203,91 @@ def run_grabbing_process(config):
                 sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 等待中...")
                 time.sleep(1)
 
-        # 连续抢场循环
-        successful_bookings = []
+        # 时间优先，粘性场地循环
+        driver.refresh()
+        print("页面刷新完毕，开始按时间优先，粘性场地策略抢票...")
+
+        successful_bookings = {}
         failed_bookings = []
+        preferred_court = None  # 粘性场地
 
+        # 外层循环是时间
         for appointment in appointments_to_try:
-            driver.refresh()
-            print("页面刷新...")
-
             print(f"\n=========== 开始任务: [时间] {appointment.replace('(可预约)', '')} ===========")
             task_successful = False
+
+            # 内层循环是场馆
             for venue in venues_to_try:
                 print(f"--- 正在尝试场馆: {venue} ---")
-                try:
-                    wait = WebDriverWait(driver, 7)
-                    # 每次都从头点击，保证流程稳定
-                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
-                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['ball']}']"))).click()
-                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
-                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
-                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venue}']"))).click()
 
-                    if find_and_click_available_court(config):
-                        WebDriverWait(driver, 1).until(
-                            EC.element_to_be_clickable((By.XPATH, "//button[text()='提交预约']"))).click()
-                        print("✅ 成功提交预约！")
-                        # 提交后立刻处理同行人和支付
-                        add_companions(config.get("companions_id", []))
-                        pay(config["payment_password"])
+                # 为每个场馆尝试增加重试循环
+                for attempt in range(3):  # 最多重试3次
+                    try:
+                        if attempt > 0:
+                            driver.get(MAIN_PAGE_URL)
+                            driver.refresh()
+                            time.sleep(1)
 
-                        successful_bookings.append(appointment)
-                        task_successful = True
-                        break  # 已为当前时间段抢到场地，跳出场馆循环
-                    else:
-                        print("  -> 该场馆下无可用场地。")
-                        driver.get(MAIN_PAGE_URL)  # 返回主页，准备下一次尝试
-                except TimeoutException:
-                    print("  -> 该组合不可选或超时。")
-                    driver.get(MAIN_PAGE_URL)  # 返回主页，准备下一次尝试
-                    continue
+                        wait = WebDriverWait(driver, 7)
+                        wait.until(
+                            EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
+                        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['ball']}']"))).click()
+                        wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
+                        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
+                        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venue}']"))).click()
+
+                        court_info = find_and_click_available_court(config, preferred_court)
+                        if court_info:
+                            WebDriverWait(driver, 10).until(
+                                EC.element_to_be_clickable((By.XPATH, "//button[text()='提交预约']"))).click()
+                            print(" -> 正在等待预约确认页面...")
+                            WebDriverWait(driver, 10).until(
+                                EC.visibility_of_element_located((By.XPATH, "//a[text()='同行人']"))
+                            )
+                            print("✅ 成功提交预约！")
+
+                            successful_bookings[appointment] = (venue, court_info)
+                            preferred_court = court_info.split('(')[0].strip()
+                            task_successful = True
+
+                            add_companions(config.get("companions_id", []))
+                            pay(config["payment_password"])
+                        else:
+                            print("  -> 该场馆下无可用场地。")
+
+                        break
+
+                    except StaleElementReferenceException:
+                        print(f" -> 页面元素已过期 (Stale)，正在进行第 {attempt + 1}/3 次重试...")
+                        if attempt == 2: print(" -> 重试失败，放弃该场馆。")
+                    except TimeoutException:
+                        print("  -> 该组合不可选或超时，放弃该场馆。")
+                        break
+
+                if task_successful:
+                    break  # 当前时间段任务完成，跳出场馆循环
 
             if not task_successful:
                 failed_bookings.append(appointment)
 
-            # 无论成功与否，都返回主页准备下一个时间段的任务
-            print("...返回主页，准备下一个任务...")
+            print("...当前时间段任务结束，返回主页...")
             driver.get(MAIN_PAGE_URL)
-            time.sleep(1)  # 等待页面加载
+            driver.refresh()
+            time.sleep(1)
 
         # 打印最终总结
         print("\n" + "=" * 25 + " 抢票总结 " + "=" * 25)
         if successful_bookings:
-            print("✅ 成功预约的时间段:")
-            for item in successful_bookings:
-                print(f"   - {item.replace('(可预约)', '')}")
+            print("✅ 成功预约的时间段和场地:")
+            for appointment in appointments_to_try:
+                if appointment in successful_bookings:
+                    venue, court = successful_bookings[appointment]
+                    print(f"   - {appointment.replace('(可预约)', '')} @ {venue} ({court.split('(')[0].strip()})")
+        else:
+            print("...本次未能成功预约任何场地...")
+
         if failed_bookings:
-            print("\n❌ 预约失败或无可预约场地的时间段:")
+            print("\n❌ 未能成功预约的时间段:")
             for item in failed_bookings:
                 print(f"   - {item.replace('(可预约)', '')}")
         print("=" * 60)
