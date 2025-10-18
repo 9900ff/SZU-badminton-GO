@@ -2,6 +2,8 @@
 
 **github项目发布地址**：https://github.com/9900ff/SZU-badminton-GO
 
+下载请点击网页右侧Releases，下载最新SZU-badminton-GO.zip后缀压缩包
+
 ## 说明
 
 本项目是基于 [Cooduck/Ticket_grabbing_system](https://github.com/Cooduck/Ticket_grabbing_system) 修改的深圳大学自动抢羽毛球场脚本。
