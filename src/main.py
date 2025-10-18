@@ -22,10 +22,70 @@ driver = None
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAIN_PAGE_URL = 'https://ehall.szu.edu.cn/qljfwapp/sys/lwSzuCgyy/index.do#/sportVenue'
 
+def show_overlay_message(message, status='info', duration=0):
+    """
+    在浏览器右上角显示一个悬浮消息。
+    status: 'info'(蓝), 'success'(绿), 'warning'(黄), 'error'(红)
+    duration: 消息显示持续时间（秒），0表示永久显示
+    """
+    global driver
+    if not driver: return
+
+    colors = {
+        'info': {'bg': '#eff6ff', 'text': '#1d4ed8', 'border': '#93c5fd'},
+        'success': {'bg': '#f0fdf4', 'text': '#166534', 'border': '#86efac'},
+        'warning': {'bg': '#fefce8', 'text': '#854d0e', 'border': '#fde047'},
+        'error': {'bg': '#fee2e2', 'text': '#991b1b', 'border': '#fca5a5'}
+    }
+    color_scheme = colors.get(status, colors['info'])
+
+    # 将多行文本转换为JS兼容的格式
+    message_html = message.replace('\n', '<br>')
+
+    script = f"""
+    var overlay = document.getElementById('szu-grabber-overlay');
+    if (!overlay) {{
+        overlay = document.createElement('div');
+        overlay.id = 'szu-grabber-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '20px';
+        overlay.style.right = '20px';
+        overlay.style.padding = '12px 16px';
+        overlay.style.borderRadius = '8px';
+        overlay.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)';
+        overlay.style.zIndex = '999999';
+        overlay.style.fontFamily = 'sans-serif';
+        overlay.style.fontSize = '14px';
+        overlay.style.fontWeight = '500';
+        overlay.style.borderWidth = '1px';
+        overlay.style.borderStyle = 'solid';
+        overlay.style.transition = 'opacity 0.5s ease-in-out';
+        overlay.style.maxWidth = '300px';
+        document.body.appendChild(overlay);
+    }}
+
+    overlay.style.backgroundColor = '{color_scheme['bg']}';
+    overlay.style.color = '{color_scheme['text']}';
+    overlay.style.borderColor = '{color_scheme['border']}';
+    overlay.innerHTML = `{message_html}`;
+    overlay.style.opacity = '1';
+
+    if ({duration} > 0) {{
+        setTimeout(function() {{
+            overlay.style.opacity = '0';
+        }}, {duration * 1000 - 500});
+    }}
+    """
+    try:
+        driver.execute_script(script)
+    except Exception:
+        # 页面跳转时可能会执行失败，可以忽略
+        pass
 
 def login(username, password):
     """自动登录模块"""
     global driver
+    show_overlay_message("检测到学号和密码...<br>正在执行自动登录...", status='info')
     print("检测到学号和密码，正在执行自动登录...")
     try:
         username_input = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "username")))
@@ -35,10 +95,12 @@ def login(username, password):
         login_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "login_submit")))
         driver.execute_script("arguments[0].click();", login_button)
         print("登录成功！")
+        show_overlay_message("✅ 登录成功！", status='success', duration=3)
         # 登录后等待页面跳转到主页
         WebDriverWait(driver, 15).until(EC.url_contains("sportVenue"))
     except TimeoutException:
         print("登录超时或失败，请检查网页是否能正常访问或账号密码是否正确。")
+        show_overlay_message("❌ 登录超时或失败！<br>请检查命令行窗口。", status='error')
         if driver: driver.quit()
         sys.exit(1)
 
@@ -58,6 +120,7 @@ def find_and_click_available_court(config, preferred_court=None):
 
         # --- 第一优先级，尝试粘性场地 ---
         if preferred_court:
+            show_overlay_message(f"优先尝试粘性场地:<br>{preferred_court}", status='info')
             print(f" -> 优先尝试粘性场地: {preferred_court}")
             for group_2 in group_2_elements:
                 element = group_2.find_element(By.CLASS_NAME, 'element')
@@ -104,6 +167,7 @@ def find_and_click_available_court(config, preferred_court=None):
 def add_companions(companions_id):
     if not companions_id: return
     print("正在添加同行人...")
+    show_overlay_message("正在添加同行人...", status='info')
     try:
         wait = WebDriverWait(driver, 10)
         wait.until(EC.visibility_of_element_located((By.XPATH, "//a[text()='同行人']"))).click()
@@ -122,6 +186,7 @@ def add_companions(companions_id):
 
 def pay(payment_password):
     if not payment_password: return
+    show_overlay_message("正在处理支付...", status='info')
     print("正在处理支付...")
     try:
         wait = WebDriverWait(driver, 20)
@@ -177,6 +242,7 @@ def run_grabbing_process(config):
     venues_to_try = [v.strip() for v in config.get('venues', '').split(',') if v.strip()]
 
     if not appointments_to_try or not venues_to_try:
+        show_overlay_message("❌ 配置错误！<br>未选择任何时间或场馆。", status='error')
         print("错误：未选择任何预约时间或场馆，程序退出。")
         return
 
@@ -188,12 +254,15 @@ def run_grabbing_process(config):
         if config.get("username") and config.get("password"):
             login(config["username"], config["password"])
         else:
+            show_overlay_message("请在当前浏览器中手动登录...<br>脚本将自动检测登录状态。", status='warning')
             print("\n!!! 请在当前浏览器中手动登录 !!!")
             try:
                 WebDriverWait(driver, timeout=300).until(EC.url_contains("sportVenue"))
                 print("✅ 检测到登录成功！")
+                show_overlay_message("✅ 登录成功！", status='success', duration=3)
             except TimeoutException:
                 print("❌ 手动登录超时（5分钟），程序将退出。")
+                show_overlay_message("❌ 手动登录超时！", status='error')
                 return
 
         # 等待抢票时间
@@ -203,15 +272,20 @@ def run_grabbing_process(config):
             if now_time >= ACTION_TIME:
                 sys.stdout.write("\r" + " " * 80 + "\r")
                 break
+
+            wait_msg = f"登录成功！等待抢票...<br><b>{ACTION_TIME_STR}</b>准时开始"
+            show_overlay_message(wait_msg, status='info')
+
             if (datetime.combine(datetime.min, ACTION_TIME) - datetime.combine(datetime.min,
-                                                                               now_time)).total_seconds() <= 10:
-                sys.stdout.write(f"\r进入最后 10 秒倒计时，高频检查中...")
+                                                                               now_time)).total_seconds() <= 5:
+                sys.stdout.write(f"\r进入最后 5 秒倒计时，高频检查中...")
                 time.sleep(0.01)
             else:
                 sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 等待中...")
                 time.sleep(1)
 
         # 时间优先，粘性场地循环
+        show_overlay_message("抢票开始！<br>正在刷新页面...", status='warning')
         driver.get(MAIN_PAGE_URL)
         print("页面刷新完毕，开始按时间优先，粘性场地策略抢票...")
 
@@ -226,6 +300,8 @@ def run_grabbing_process(config):
 
             # 内层循环是场馆
             for venue in venues_to_try:
+                show_overlay_message(f"正在尝试:<br><b>{appointment.replace('(可预约)', '')}</b><br>@ {venue}",
+                                     status='warning')
                 print(f"--- 正在尝试场馆: {venue} ---")
 
                 # 为每个场馆尝试增加重试循环
@@ -259,6 +335,8 @@ def run_grabbing_process(config):
                             WebDriverWait(driver, 10).until(
                                 EC.visibility_of_element_located((By.XPATH, "//a[text()='同行人']")))
                             print("✅ 成功提交预约！")
+                            show_overlay_message(f"✅ 成功预约:<br><b>{appointment.replace('(可预约)', '')}</b>",
+                                                 status='success', duration=5)
 
                             successful_bookings[appointment] = (venue, court_info)
                             preferred_court = court_info.split('(')[0].strip()
@@ -362,6 +440,9 @@ if __name__ == "__main__":
 
         print("\n----------------------------------------------------")
         print("所有任务已执行完毕！浏览器将保持打开状态以便你查看结果。")
+        show_overlay_message(
+            "🎉 所有任务已执行完毕！<br>请查看命令行总结。",
+            status='success')
         input(">>> 按 Enter 键关闭浏览器并退出... <<<")
 
     except WebDriverException:
