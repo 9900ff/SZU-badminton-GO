@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深大抢场助手 - 配置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            padding-right: 2.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 md:p-12 my-8">
+
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800">深大抢场助手</h1>
+            <p class="text-gray-500 mt-2">欢迎使用！请完成抢票配置</p>
+        </div>
+
+        <!-- 修正表单，指向后端的 /start 路由 -->
+        <form id="config-form" action="/start" method="POST" class="space-y-6">
+
+            <!-- 登录方式 -->
+            <div>
+                <label for="login-method" class="block text-sm font-medium text-gray-700">登录方式</label>
+                <select id="login-method" name="login_method" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <!-- 使用Jinja2模板判断默认选中项 -->
+                    <option value="auto" {% if config.get('username') or not config %}selected{% endif %}>自动登录 (推荐)</option>
+                    <option value="manual" {% if not config.get('username') and config %}selected{% endif %}>手动登录</option>
+                </select>
+            </div>
+
+            <!-- 自动登录的专属选项 -->
+            <div id="auto-login-fields" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">学号</label>
+                    <input type="text" id="username" name="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入学号" value="{{ config.get('username', '') }}">
+                </div>
+                <div class="relative">
+                    <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                    <input type="password" id="password" name="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="请输入密码" value="{{ config.get('password', '') }}">
+                    <button type="button" class="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-sm leading-5" onclick="togglePasswordVisibility('password', 'password-eye')">
+                        <svg id="password-eye" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- 核心预约配置 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="campus" class="block text-sm font-medium text-gray-700">校区</label>
+                    <select id="campus" name="campus" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option {% if config.get('campus') == '粤海校区' %}selected{% endif %}>粤海校区</option>
+                        <option {% if config.get('campus') == '丽湖校区' %}selected{% endif %}>丽湖校区</option>
+                    </select>
+                </div>
+                 <div>
+                    <label for="sport" class="block text-sm font-medium text-gray-700">运动项目</label>
+                    <select id="sport" name="ball" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option {% if config.get('ball') == '羽毛球' %}selected{% endif %}>羽毛球</option>
+                        <option {% if config.get('ball') == '网球' %}selected{% endif %}>网球</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="venues" class="block text-sm font-medium text-gray-700">预约场馆</label>
+                <select id="venues" name="venues" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <!-- JS会根据校区和球类动态填充，并选中旧配置 -->
+                </select>
+            </div>
+
+            <div>
+                <label for="appointment" class="block text-sm font-medium text-gray-700">预约时间</label>
+                <select id="appointment" name="appointment" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <!-- JS会生成所有时间选项，并选中旧配置 -->
+                </select>
+            </div>
+
+            <hr class="my-6 border-gray-200">
+
+             <div class="relative">
+                <label for="payment_password" class="block text-sm font-medium text-gray-700">支付密码 (可选)</label>
+                <input type="password" id="payment_password" name="payment_password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="不填写则需稍后手动支付" value="{{ config.get('payment_password', '') }}">
+                <button type="button" class="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-sm leading-5" onclick="togglePasswordVisibility('payment_password', 'payment-eye')">
+                    <svg id="payment-eye" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                </button>
+            </div>
+            <div>
+                <label for="companions_id" class="block text-sm font-medium text-gray-700">同行人 (可选)</label>
+                <input type="text" id="companions_id" name="companions_id" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="多个学号用英文逗号隔开" value="{{ config.get('companions_id', '') }}">
+            </div>
+
+            <div class="pt-4">
+                 <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-full shadow-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105">
+                    保存配置并启动
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // SVG 图标
+        const eyeIcon = `<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>`;
+        const eyeOffIcon = `<svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.673.126 2.462.365m3.658 3.658A9.937 9.937 0 0119.542 12c-1.274 4.057-5.064 7-9.542 7a9.953 9.953 0 01-2.502-.365M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" /></svg>`;
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const iconContainer = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconContainer.innerHTML = eyeOffIcon;
+            } else {
+                input.type = 'password';
+                iconContainer.innerHTML = eyeIcon;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- 从后端获取的旧配置 (Jinja2) ---
+            const oldConfig = {
+                venues: "{{ config.get('venues', '全部') }}",
+                appointment: "{{ config.get('appointment', '12:00-13:00(可预约)') }}"
+            };
+
+            const loginMethodSelect = document.getElementById('login-method');
+            const autoLoginFieldsDiv = document.getElementById('auto-login-fields');
+            const campusSelect = document.getElementById('campus');
+            const sportSelect = document.getElementById('sport');
+            const venuesSelect = document.getElementById('venues');
+            const appointmentSelect = document.getElementById('appointment');
+
+            const venueData = {
+                '粤海校区': {
+                    '羽毛球': ['全部', '运动广场东馆羽毛球场', '运动广场东馆羽毛球场（教工专场）'],
+                    '网球': ['全部', '运动广场海边网球场', '北区网球场']
+                },
+                '丽湖校区': {
+                    '羽毛球': ['全部', '至畅体育馆', '至快体育馆'],
+                    '网球': ['全部', '北区体育场网球场', '南区室外网球场']
+                }
+            };
+
+            function updateVenues() {
+                const selectedCampus = campusSelect.value;
+                const selectedSport = sportSelect.value;
+                venuesSelect.innerHTML = '';
+                const venues = venueData[selectedCampus]?.[selectedSport] || [];
+
+                venues.forEach(venue => {
+                    const option = document.createElement('option');
+                    option.value = venue;
+                    option.textContent = venue;
+                    // 使用 Jinja2 的值来做初始选中
+                    if (venue === oldConfig.venues) {
+                        option.selected = true;
+                    }
+                    venuesSelect.appendChild(option);
+                });
+            }
+
+            function generateTimeSlots() {
+                for (let i = 8; i <= 21; i++) {
+                    const start = i.toString().padStart(2, '0');
+                    const end = (i + 1).toString().padStart(2, '0');
+                    // 修正 Bug：加上 (可预约)
+                    const timeString = `${start}:00-${end}:00(可预约)`;
+
+                    const option = document.createElement('option');
+                    option.value = timeString;
+                    option.textContent = timeString.replace('(可预约)', ''); // 页面上不显示(可预约)
+                    if (timeString === oldConfig.appointment) {
+                        option.selected = true;
+                    }
+                    appointmentSelect.appendChild(option);
+                }
+            }
+
+            function toggleLoginFields() {
+                if (loginMethodSelect.value === 'auto') {
+                    autoLoginFieldsDiv.style.display = 'block';
+                } else {
+                    autoLoginFieldsDiv.style.display = 'none';
+                }
+            }
+
+            loginMethodSelect.addEventListener('change', toggleLoginFields);
+            campusSelect.addEventListener('change', updateVenues);
+            sportSelect.addEventListener('change', updateVenues);
+
+            // --- 初始化页面 ---
+            toggleLoginFields();
+            generateTimeSlots();
+            updateVenues();
+        });
+    </script>
+</body>
+</html>
+
