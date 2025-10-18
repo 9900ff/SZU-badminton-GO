@@ -32,6 +32,9 @@
 
         <form id="config-form" action="/start" method="POST" class="space-y-6">
 
+            <input type="hidden" name="appointment" id="hidden-appointment">
+            <input type="hidden" name="venues" id="hidden-venues">
+
             <div class="bg-red-50 border-l-4 border-red-400 text-red-800 p-4 rounded-lg text-sm">
                 <p class="font-bold">安全提示：</p>
                 <ul class="list-disc list-inside mt-2 space-y-1">
@@ -81,24 +84,23 @@
                     <label for="sport" class="block text-sm font-medium text-gray-700">运动项目</label>
                     <select id="sport" name="ball" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option {% if config.get('ball') == '羽毛球' %}selected{% endif %}>羽毛球</option>
-                        <!-- 【修改】将网球选项改为不可选的提示 -->
                         <option disabled>其他运动项目需求不大，暂不开发</option>
                     </select>
                 </div>
             </div>
 
             <div>
-                <label for="venues" class="block text-sm font-medium text-gray-700">预约场馆</label>
-                <select id="venues" name="venues" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                <label class="block text-sm font-medium text-gray-700">预约场馆 (可多选)</label>
+                <div id="venues-container" class="mt-2 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 border border-gray-200 rounded-md p-4">
                     <!-- JS会动态填充 -->
-                </select>
+                </div>
             </div>
 
             <div>
-                <label for="appointment" class="block text-sm font-medium text-gray-700">预约时间</label>
-                <select id="appointment" name="appointment" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                <label class="block text-sm font-medium text-gray-700">预约时间 (可多选，按勾选顺序抢)</label>
+                <div id="appointment-container" class="mt-2 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 border border-gray-200 rounded-md p-4">
                     <!-- JS会动态填充 -->
-                </select>
+                </div>
             </div>
 
             <hr class="my-6 border-gray-200">
@@ -144,75 +146,84 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            // --- 从后端获取的旧配置 (Jinja2) ---
             const oldConfig = {
-                venues: "{{ config.get('venues', '全部') }}",
-                appointment: "{{ config.get('appointment', '12:00-13:00(可预约)') }}"
+                venues: ("{{ config.get('venues', '全部') }}").split(','),
+                appointments: ("{{ config.get('appointment', '19:00-20:00(可预约)') }}").split(',')
             };
 
             const loginMethodSelect = document.getElementById('login-method');
             const autoLoginFieldsDiv = document.getElementById('auto-login-fields');
             const campusSelect = document.getElementById('campus');
             const sportSelect = document.getElementById('sport');
-            const venuesSelect = document.getElementById('venues');
-            const appointmentSelect = document.getElementById('appointment');
+            const venuesContainer = document.getElementById('venues-container');
+            const appointmentContainer = document.getElementById('appointment-container');
+            const form = document.getElementById('config-form');
 
-            // 【修改】移除了与 "网球" 相关的数据
             const venueData = {
-                '粤海校区': {
-                    '羽毛球': ['全部', '运动广场东馆羽毛球场', '运动广场东馆羽毛球场（教工专场）']
-                },
-                '丽湖校区': {
-                    '羽毛球': ['全部', '至畅体育馆', '至快体育馆']
-                }
+                '粤海校区': { '羽毛球': ['全部', '运动广场东馆羽毛球场', '运动广场东馆羽毛球场（教工专场）'] },
+                '丽湖校区': { '羽毛球': ['全部', '至畅体育馆', '至快体育馆'] }
             };
+
+            function createCheckbox(container, value, text, name, checked) {
+                const label = document.createElement('label');
+                label.className = 'flex items-center space-x-2 text-sm text-gray-700 cursor-pointer';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = name;
+                checkbox.value = value;
+                checkbox.checked = checked;
+                checkbox.className = 'h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500';
+                label.appendChild(checkbox);
+                const span = document.createElement('span');
+                span.textContent = text;
+                label.appendChild(span);
+                container.appendChild(label);
+            }
 
             function updateVenues() {
                 const selectedCampus = campusSelect.value;
                 const selectedSport = sportSelect.value;
-                venuesSelect.innerHTML = '';
+                venuesContainer.innerHTML = '';
                 const venues = venueData[selectedCampus]?.[selectedSport] || [];
 
                 venues.forEach(venue => {
-                    const option = document.createElement('option');
-                    option.value = venue;
-                    option.textContent = venue;
-                    if (venue === oldConfig.venues) {
-                        option.selected = true;
-                    }
-                    venuesSelect.appendChild(option);
+                    const isChecked = oldConfig.venues.includes(venue);
+                    createCheckbox(venuesContainer, venue, venue, 'venue_options', isChecked);
                 });
             }
 
             function generateTimeSlots() {
+                appointmentContainer.innerHTML = '';
                 for (let i = 8; i <= 21; i++) {
                     const start = i.toString().padStart(2, '0');
                     const end = (i + 1).toString().padStart(2, '0');
                     const timeString = `${start}:00-${end}:00(可预约)`;
-
-                    const option = document.createElement('option');
-                    option.value = timeString;
-                    option.textContent = timeString.replace('(可预约)', '');
-                    if (timeString === oldConfig.appointment) {
-                        option.selected = true;
-                    }
-                    appointmentSelect.appendChild(option);
+                    const isChecked = oldConfig.appointments.includes(timeString);
+                    createCheckbox(appointmentContainer, timeString, timeString.replace('(可预约)', ''), 'appointment_options', isChecked);
                 }
             }
 
             function toggleLoginFields() {
-                if (loginMethodSelect.value === 'auto') {
-                    autoLoginFieldsDiv.style.display = 'block';
-                } else {
-                    autoLoginFieldsDiv.style.display = 'none';
-                }
+                autoLoginFieldsDiv.style.display = loginMethodSelect.value === 'auto' ? 'block' : 'none';
             }
+
+            form.addEventListener('submit', function(e) {
+                const checkedAppointments = Array.from(document.querySelectorAll('input[name="appointment_options"]:checked')).map(cb => cb.value);
+                document.getElementById('hidden-appointment').value = checkedAppointments.join(',');
+
+                const checkedVenues = Array.from(document.querySelectorAll('input[name="venue_options"]:checked')).map(cb => cb.value);
+                document.getElementById('hidden-venues').value = checkedVenues.join(',');
+
+                if (checkedAppointments.length === 0 || checkedVenues.length === 0) {
+                    alert('请至少选择一个预约时间和预约场馆！');
+                    e.preventDefault(); // 阻止表单提交
+                }
+            });
 
             loginMethodSelect.addEventListener('change', toggleLoginFields);
             campusSelect.addEventListener('change', updateVenues);
             sportSelect.addEventListener('change', updateVenues);
 
-            // --- 初始化页面 ---
             toggleLoginFields();
             generateTimeSlots();
             updateVenues();

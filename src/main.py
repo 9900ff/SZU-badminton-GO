@@ -13,19 +13,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
 # 将脚本当前所在的目录添加到 Python 的模块搜索路径中
-# 这可以确保 'from web_server import ...' 始终有效
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from web_server import ConfigServer
 
 # --- 全局变量 ---
 NEXT_DAY = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-driver = None  # WebDriver 全局实例
+driver = None
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAIN_PAGE_URL = 'https://ehall.szu.edu.cn/qljfwapp/sys/lwSzuCgyy/index.do#/sportVenue'
 
-
-# ======================================================================
-#                        抢票逻辑部分 (Selenium)
-# ======================================================================
 
 def login(username, password):
     """自动登录模块"""
@@ -39,83 +35,50 @@ def login(username, password):
         login_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "login_submit")))
         driver.execute_script("arguments[0].click();", login_button)
         print("登录成功！")
+        # 登录后等待页面跳转到主页
+        WebDriverWait(driver, 15).until(EC.url_contains("sportVenue"))
     except TimeoutException:
-        print("登录超时，请检查网页是否能正常访问或账号密码是否正确。")
+        print("登录超时或失败，请检查网页是否能正常访问或账号密码是否正确。")
         if driver: driver.quit()
         sys.exit(1)
 
 
-def select_venue(campus, ball, appointment, venues):
-    """选择场馆和时间 (带自动刷新和随机场地优先)"""
-    print("12:30时间到！正在刷新页面以获取最新场次...")
-    driver.refresh()
-    print("页面刷新完毕，开始执行选择流程...")
+def find_and_click_available_court(config):
+    """在当前页面寻找并点击一个可预约的场地，返回是否成功"""
     try:
-        wait = WebDriverWait(driver, 30)
-        print("步骤1: 正在点击校区...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{campus}']"))).click()
-        print(f" -> 已点击校区: {campus}")
-        print("步骤2: 正在点击球类...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{ball}']"))).click()
-        print(f" -> 已点击球类: {ball}")
-        print("步骤3: 正在点击日期 (明天)...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
-        print(f" -> 已点击日期: {NEXT_DAY}")
-        print(f"步骤4: 正在点击时间段 '{appointment}'...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
-        print(f" -> 已点击时间段: {appointment}")
-        print(f"步骤5: 正在寻找场馆 '{venues}'...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venues}']"))).click()
-        print(f" -> 已点击场馆: {venues}")
-        print("步骤6: 寻找一个可预约的场地 (随机优先)...")
+        wait = WebDriverWait(driver, 5)  # 检查场地的等待时间可以短一些
         group_2_elements = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'group-2')))
-        if campus == "粤海校区":
+
+        if config["campus"] == "粤海校区":
             priority_courts = ['C5', 'C6', 'C7', 'C8', 'C4', 'C3', 'C2', 'C1', 'B5', 'B6', 'B7', 'B8', 'B4', 'B3', 'B2',
                                'B1', 'D5', 'D6', 'D7', 'D8', 'D4', 'D3', 'D2', 'D1', 'A5', 'A6', 'A7', 'A8', 'A4', 'A3',
                                'A2', 'A1']
         else:
             priority_courts = ['1号', '2号', '3号', '4号', '5号', '6号', '7号', '8号', '9号', '10号', '11号', '12号']
+
         random.shuffle(priority_courts)
-        selected_court = False
-        print(f" -> 正在按随机顺序查找场地...")
+
+        # 按随机顺序查找优先场地
         for court_name in priority_courts:
             for group_2 in group_2_elements:
                 element = group_2.find_element(By.CLASS_NAME, 'element')
                 element_text = element.text
                 if court_name in element_text and '可预约' in element_text:
                     group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
-                    selected_court = True
                     print(f" -> 成功选择一个【随机优先】场地：{element_text}")
-                    break
-            if selected_court: break
-        if not selected_court:
-            print(f" -> 未找到任何在优先列表中的可预约场地，尝试选择任意可用场地...")
-            for group_2 in group_2_elements:
-                element = group_2.find_element(By.CLASS_NAME, 'element')
-                if '可预约' in element.text and '场' in element.text:
-                    group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
-                    selected_court = True
-                    print(f" -> 成功选择一个【备选】场地：{element.text}")
-                    break
-            if not selected_court:
-                print(" -> 未找到任何可预约的场地。")
-                if driver: driver.quit()
-                sys.exit(1)
-        print("步骤7: 提交预约...")
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='提交预约']"))).click()
-        print("场地选择完成，已提交预约。")
+                    return True
+
+        # 如果优先场地都没找到，尝试任意一个可用的
+        for group_2 in group_2_elements:
+            element = group_2.find_element(By.CLASS_NAME, 'element')
+            if '可预约' in element.text and '场' in element.text:
+                group_2.find_element(By.CLASS_NAME, 'frame-child1').click()
+                print(f" -> 成功选择一个【备选】场地：{element.text}")
+                return True
+
+        return False  # 未找到任何可用场地
     except TimeoutException:
-        print("\n!!!!!!!!!!!!!!!!!! 脚本超时 !!!!!!!!!!!!!!!!!!!")
-        try:
-            error_screenshot_path = os.path.join(BASE_DIR,
-                                                 f"error_screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
-            driver.save_screenshot(error_screenshot_path)
-            print(f"\n -> 已保存错误截图到: {error_screenshot_path}")
-        except Exception as e:
-            print(f" -> 截图失败: {e}")
-        # 超时后不关闭浏览器，让用户查看
-        # if driver: driver.quit()
-        # sys.exit(1) # 不直接退出
+        return False  # 连场地列表都没加载出来
 
 
 def add_companions(companions_id):
@@ -142,7 +105,9 @@ def pay(payment_password):
     print("正在处理支付...")
     try:
         wait = WebDriverWait(driver, 20)
+        # 等待页面加载出“未支付”按钮
         wait.until(EC.visibility_of_element_located((By.XPATH, "//a[text()='未支付']"))).click()
+
         initial_window_count = len(driver.window_handles)
         wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), '支付')]"))).click()
         wait.until(EC.number_of_windows_to_be(initial_window_count + 1))
@@ -155,12 +120,19 @@ def pay(payment_password):
             driver.find_element(By.CLASS_NAME, f"key-button.key-{digit}").click()
         wait.until(EC.visibility_of_element_located((By.XPATH, "//button[text()='确认支付']"))).click()
         print("支付密码已输入，确认支付。")
+        # 支付完成后，关闭支付窗口并切回主窗口
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
     except Exception as e:
         print(f"支付时发生错误: {e}")
+        # 如果支付失败，确保切换回主窗口
+        if len(driver.window_handles) > 1:
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
 
 
 def initialize_driver():
-    """初始化 WebDriver (自动寻找相对路径下的驱动和浏览器)"""
+    """初始化 WebDriver"""
     global driver
     try:
         chromedriver_path = os.path.join(BASE_DIR, 'chromedriver-win64', 'chromedriver.exe')
@@ -185,61 +157,107 @@ def run_grabbing_process(config):
     ACTION_TIME_STR = "12:30:00"
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
 
+    appointments_to_try = [t.strip() for t in config.get('appointment', '').split(',') if t.strip()]
+    venues_to_try = [v.strip() for v in config.get('venues', '').split(',') if v.strip()]
+
+    if not appointments_to_try or not venues_to_try:
+        print("错误：未选择任何预约时间或场馆，程序退出。")
+        return
+
     try:
+        # 登录流程
         url = 'https://ehall.szu.edu.cn/qljfwapp/sys/lwSzuCgyy/index.do'
         print(f"\n配置完成，正在导航到深大登录页: {url}")
         driver.get(url)
-
-        use_auto_login = config.get("username") and config.get("password")
-        if use_auto_login:
+        if config.get("username") and config.get("password"):
             login(config["username"], config["password"])
         else:
             print("\n!!! 请在当前浏览器中手动登录 !!!")
-            print("脚本将自动检测登录状态，登录成功后会自动继续...")
             try:
-                WebDriverWait(driver, timeout=300).until(EC.url_contains("ehall.szu.edu.cn"))
+                WebDriverWait(driver, timeout=300).until(EC.url_contains("sportVenue"))
                 print("✅ 检测到登录成功！")
             except TimeoutException:
                 print("❌ 手动登录超时（5分钟），程序将退出。")
                 return
 
+        # 等待抢票时间
         print(f"\n登录流程完毕，等待到达 {ACTION_TIME} 开始抢票...")
-
-        # 定义高频检查的阈值
-        high_freq_seconds = 3
-        # 使用 datetime.min 来创建一个基础日期，以便进行时间运算
-        high_freq_threshold = (
-                    datetime.combine(datetime.min, ACTION_TIME) - timedelta(seconds=high_freq_seconds)).time()
-
         while True:
             now_time = datetime.now().time()
             if now_time >= ACTION_TIME:
-                # 清除最后一次打印的等待信息
                 sys.stdout.write("\r" + " " * 80 + "\r")
                 break
-
-            # 检查是否进入高频检查窗口
-            if now_time >= high_freq_threshold:
-                # 最后的几秒，高频检查
-                sys.stdout.write(f"\r进入最后 {high_freq_seconds} 秒，准备抢...")
+            if (datetime.combine(datetime.min, ACTION_TIME) - datetime.combine(datetime.min,
+                                                                               now_time)).total_seconds() <= 10:
+                sys.stdout.write(f"\r进入最后 10 秒倒计时，高频检查中...")
                 time.sleep(0.01)
             else:
-                # 距离较远，低频检查
-                sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 距离抢票时间较远...")
+                sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 等待中...")
                 time.sleep(1)
 
-        select_venue(config["campus"], config["ball"], config["appointment"], config["venues"])
-        add_companions(config.get("companions_id", []))
-        pay(config["payment_password"])
+        # 连续抢场循环
+        successful_bookings = []
+        failed_bookings = []
 
-        print('\n🎉 预约并支付成功！请登录eHall查看确认。')
-        # time.sleep(10) # 任务完成后不再需要固定等待
+        for appointment in appointments_to_try:
+            driver.refresh()
+            print("页面刷新...")
+
+            print(f"\n=========== 开始任务: [时间] {appointment.replace('(可预约)', '')} ===========")
+            task_successful = False
+            for venue in venues_to_try:
+                print(f"--- 正在尝试场馆: {venue} ---")
+                try:
+                    wait = WebDriverWait(driver, 7)
+                    # 每次都从头点击，保证流程稳定
+                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
+                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['ball']}']"))).click()
+                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
+                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
+                    wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venue}']"))).click()
+
+                    if find_and_click_available_court(config):
+                        WebDriverWait(driver, 1).until(
+                            EC.element_to_be_clickable((By.XPATH, "//button[text()='提交预约']"))).click()
+                        print("✅ 成功提交预约！")
+                        # 提交后立刻处理同行人和支付
+                        add_companions(config.get("companions_id", []))
+                        pay(config["payment_password"])
+
+                        successful_bookings.append(appointment)
+                        task_successful = True
+                        break  # 已为当前时间段抢到场地，跳出场馆循环
+                    else:
+                        print("  -> 该场馆下无可用场地。")
+                        driver.get(MAIN_PAGE_URL)  # 返回主页，准备下一次尝试
+                except TimeoutException:
+                    print("  -> 该组合不可选或超时。")
+                    driver.get(MAIN_PAGE_URL)  # 返回主页，准备下一次尝试
+                    continue
+
+            if not task_successful:
+                failed_bookings.append(appointment)
+
+            # 无论成功与否，都返回主页准备下一个时间段的任务
+            print("...返回主页，准备下一个任务...")
+            driver.get(MAIN_PAGE_URL)
+            time.sleep(1)  # 等待页面加载
+
+        # 打印最终总结
+        print("\n" + "=" * 25 + " 抢票总结 " + "=" * 25)
+        if successful_bookings:
+            print("✅ 成功预约的时间段:")
+            for item in successful_bookings:
+                print(f"   - {item.replace('(可预约)', '')}")
+        if failed_bookings:
+            print("\n❌ 预约失败或无可预约场地的时间段:")
+            for item in failed_bookings:
+                print(f"   - {item.replace('(可预约)', '')}")
+        print("=" * 60)
+
 
     except KeyError as e:
-        print(f"\n!!!!!!!!!! 配置错误 !!!!!!!!!!")
-        print(f"脚本在配置中找不到必要的信息: {e}")
-        print("请检查 information.txt 文件是否已正确生成。")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+        print(f"\n!!!!!!!!!! 配置错误 !!!!!!!!!!\n脚本在配置中找不到必要的信息: {e}\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
     except Exception as e:
         print(f"脚本运行出错: {e}")
 
@@ -250,7 +268,6 @@ def load_config_from_file():
     if not os.path.exists(config_file_path):
         print(f"错误：找不到配置文件 {config_file_path}")
         return None
-
     config = {}
     with open(config_file_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -260,65 +277,51 @@ def load_config_from_file():
                 config[key.strip()] = value.strip()
             except ValueError:
                 pass
-
-    # 特殊处理同行人
-    companions_str = config.get("companions_id", "")
-    config["companions_id"] = [id.strip() for id in companions_str.split(",") if id.strip()]
     return config
 
 
-# ======================================================================
-#                            主程序入口
-# ======================================================================
-
 if __name__ == "__main__":
-    # 1. 创建一个用于线程通信的事件
-    config_complete_event = threading.Event()
+    print("=" * 60 + "\n" + " " * 20 + "深大抢场助手 - 安全提示" + "\n" + "=" * 60)
+    print(" > 本项目完全开源，源程序全部公开可查，不保存任何用户数据。")
+    print(" > 为防止在传播过程被恶意修改，【推荐选择手动登录】。")
+    print(" > 请保护好自己的密码！！")
+    print("\n > 请从唯一github发布地址下载本程序：")
+    print(" > https://github.com/9900ff/SZU-badminton-GO" + "\n" + "=" * 60 + "\n")
+    time.sleep(3)
 
-    # 2. 实例化配置服务器类，并启动它
+    config_complete_event = threading.Event()
     config_server = ConfigServer(completion_event=config_complete_event)
     config_server.start()
-    time.sleep(1)  # 等待服务器启动
+    time.sleep(1)
 
-    # 3. 初始化Selenium浏览器
     if not initialize_driver():
         sys.exit(1)
 
     try:
-        # 4. 打开配置页面
         config_url = "http://127.0.0.1:8088"
         print(f"请在打开的浏览器窗口中完成配置: {config_url}")
         driver.get(config_url)
-
-        # 5. 等待用户在网页上提交配置
         config_complete_event.wait()
 
-        # 6. 【关键修复】用户已提交配置，我们在这里主动重新读取配置文件
         latest_config = load_config_from_file()
         if not latest_config:
             raise Exception("无法加载配置，程序终止。")
 
-        # 7. 现在接管浏览器执行抢票
         run_grabbing_process(latest_config)
 
-        # 8. 【新逻辑】任务完成后，保持浏览器打开
         print("\n----------------------------------------------------")
-        print("所有任务已执行完毕！")
-        print("github项目发布地址：https://github.com/9900ff/SZU-badminton-GO")
+        print("所有任务已执行完毕！浏览器将保持打开状态以便你查看结果。")
         input(">>> 按 Enter 键关闭浏览器并退出... <<<")
-
 
     except WebDriverException:
         print("浏览器窗口被手动关闭，程序退出。")
     except Exception as e:
         print(f"主程序发生未知错误: {e}")
     finally:
-        # 无论成功或失败，最终都会在这里关闭浏览器
         if driver:
             driver.quit()
             print("浏览器已关闭。")
 
     print("\n程序已退出。")
-    # 使用 os._exit(0) 确保所有线程（包括Flask的）都被终止
     os._exit(0)
 
