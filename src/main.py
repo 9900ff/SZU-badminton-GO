@@ -313,7 +313,7 @@ def run_grabbing_process(config):
                             driver.get(MAIN_PAGE_URL)
 
 
-                        wait = WebDriverWait(driver, 20)  # 延长整体等待时间
+                        wait = WebDriverWait(driver, 5)  # 延长整体等待时间
                         wait.until(
                             EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
                         time.sleep(0.1)
@@ -364,7 +364,7 @@ def run_grabbing_process(config):
 
             driver.get("about:blank")
             driver.get(MAIN_PAGE_URL)
-            time.sleep(1)
+            # time.sleep(1)
 
         # 打印最终总结
         print("\n" + "=" * 25 + " 抢票总结 " + "=" * 25)
