@@ -99,7 +99,7 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700">预约时间 (可多选，按勾选顺序抢)</label>
+                <label class="block text-sm font-medium text-gray-700">预约时间 (可多选，按时间顺序抢)</label>
                 <div id="appointment-container" class="mt-2 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 border border-gray-200 rounded-md p-4">
                     <!-- JS会动态填充 -->
                 </div>
@@ -108,7 +108,7 @@
             <hr class="my-6 border-gray-200">
 
              <div class="relative">
-                <label for="payment_password" class="block text-sm font-medium text-gray-700">支付密码 (可选)</label>
+                <label for="payment_password" class="block text-sm font-medium text-gray-700">支付密码 (可选，抢多时间段不建议填写)</label>
                 <input type="password" id="payment_password" name="payment_password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="不填写则需稍后手动支付" value="{{ config.get('payment_password', '') }}">
                 <button type="button" class="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-sm leading-5" onclick="togglePasswordVisibility('payment_password', 'payment-eye')">
                     <svg id="payment-eye" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -118,7 +118,7 @@
                 </button>
             </div>
             <div>
-                <label for="companions_id" class="block text-sm font-medium text-gray-700">同行人 (可选)</label>
+                <label for="companions_id" class="block text-sm font-medium text-gray-700">同行人 (可选，抢多时间段不建议填写)</label>
                 <input type="text" id="companions_id" name="companions_id" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="多个学号用英文逗号隔开" value="{{ config.get('companions_id', '') }}">
             </div>
 
