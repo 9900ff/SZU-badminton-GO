@@ -224,10 +224,6 @@ def initialize_driver():
         options = Options()
         options.binary_location = chrome_binary_path
 
-        # 【新增】为多线程优化：每个浏览器一个独立的用户数据目录
-        user_data_dir = os.path.join(BASE_DIR, "user_data", f"thread_{threading.current_thread().ident}")
-        options.add_argument(f"--user-data-dir={user_data_dir}")
-
         driver_instance = webdriver.Chrome(service=service, options=options)
         driver_instance.implicitly_wait(5)
         return driver_instance  # 【修改】返回实例
