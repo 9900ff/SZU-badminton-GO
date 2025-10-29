@@ -317,18 +317,18 @@ def run_grabbing_process(driver, config):
                             driver.get("about:blank")
                             driver.get(MAIN_PAGE_URL)
 
-                        wait = WebDriverWait(driver, 5)
+                        wait = WebDriverWait(driver, 3)
                         wait.until(
                             EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
-                        time.sleep(0.03)
+                        time.sleep(0.05)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['ball']}']"))).click()
-                        time.sleep(0.03)
+                        time.sleep(0.05)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
-                        time.sleep(0.03)
+                        time.sleep(0.05)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
-                        time.sleep(0.03)
+                        time.sleep(0.05)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venue}']"))).click()
-                        time.sleep(0.03)
+                        time.sleep(0.05)
 
                         # 【修改】传入 driver, 多线程模式下不使用粘性场地
                         use_sticky_court = config.get("grabbing_mode", "single") == "single"
@@ -495,9 +495,9 @@ if __name__ == "__main__":
 
         # 2. 根据配置，决定启动单线程还是多线程
         threads = []
-        mode = latest_config.get("grabbing_mode", "single")
+        mode = latest_config.get("grabbing_mode", "sticky")
 
-        if mode == 'multi':
+        if mode == 'multithread':
             print(f"\n--- 检测到【多线程并发模式】---")
             appointments_to_try = [t.strip() for t in latest_config.get('appointment', '').split(',') if t.strip()]
             if not appointments_to_try:

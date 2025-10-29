@@ -80,7 +80,7 @@ class ConfigServer:
             self.completion_event.set()
             return """
             <!DOCTYPE html><html lang="zh-CN"><head><title>配置成功</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f0fdf4; color: #166534;} h1{font-size: 2em;}</style></head>
-            <body><h1>✅ 配置已保存！</h1><p>浏览器将自动跳转到登录页面，请继续操作...</p></body></html>
+            <body><h1>✅ 配置已保存！</h1><p>浏览器将自动跳转到登录页面，请继续操作。如果没有反应，请检查是否有多个终端，然后重启软件...</p></body></html>
             """
 
     def run_server(self):
