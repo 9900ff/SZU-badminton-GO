@@ -49,8 +49,11 @@ class ConfigServer:
         content = "# (这是由网页配置生成器自动生成的文件)\n\n"
         if data.get('login_method') == 'manual':
             data['username'], data['password'] = '', ''
+
+        # 【修改】添加 'grabbing_mode' 到字段列表
         fields = ['username', 'password', 'campus', 'ball', 'venues', 'appointment', 'payment_password',
-                  'companions_id']
+                  'companions_id', 'grabbing_mode']
+
         for field in fields:
             content += f"{field} = {data.get(field, '')}\n"
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -131,4 +134,3 @@ if __name__ == '__main__':
     print("\n配置已保存。测试服务器将在 1 秒后自动关闭。")
     time.sleep(1)
     os._exit(0)  # 强制退出整个程序
-

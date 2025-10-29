@@ -32,10 +32,7 @@
 
         <form id="config-form" action="/start" method="POST" class="space-y-6">
 
-            <!-- 隐藏的输入框，用于收集多选的时间 -->
             <input type="hidden" name="appointment" id="hidden-appointment">
-            <!-- 场馆不再需要隐藏输入框，直接使用select的name -->
-
             <div class="bg-red-50 border-l-4 border-red-400 text-red-800 p-4 rounded-lg text-sm">
                 <p class="font-bold">安全提示：</p>
                 <ul class="list-disc list-inside mt-2 space-y-1">
@@ -90,19 +87,16 @@
                 </div>
             </div>
 
-            <!-- 【修改】将场馆改回下拉选择框 -->
             <div>
                 <label for="venues" class="block text-sm font-medium text-gray-700">预约场馆</label>
                 <select id="venues" name="venues" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <!-- JS会动态填充 -->
-                </select>
+                    </select>
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700">预约时间 (可多选，按时间顺序抢)</label>
                 <div id="appointment-container" class="mt-2 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 border border-gray-200 rounded-md p-4">
-                    <!-- JS会动态填充 -->
-                </div>
+                    </div>
             </div>
 
             <hr class="my-6 border-gray-200">
@@ -121,6 +115,19 @@
                 <label for="companions_id" class="block text-sm font-medium text-gray-700">同行人 (可选，抢多时间段不建议填写)</label>
                 <input type="text" id="companions_id" name="companions_id" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="多个学号用英文逗号隔开" value="{{ config.get('companions_id', '') }}">
             </div>
+
+            <div>
+                <label for="grabbing-mode" class="block text-sm font-medium text-gray-700">抢票模式</label>
+                <select id="grabbing-mode" name="grabbing_mode" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="single" {% if config.get('grabbing_mode', 'single') == 'single' %}selected{% endif %}>单线程模式 (时间优先, 粘性场地)</option>
+                    <option value="multi" {% if config.get('grabbing_mode') == 'multi' %}selected{% endif %}>多线程并发模式 (推荐, 随机场地)</option>
+                </select>
+                <p class="mt-2 text-xs text-gray-500">
+                    单线程：按时间顺序一个一个抢，抢到A后优先抢A旁边的场地。<br>
+                    <strong class="text-indigo-600">多线程并发（推荐）</strong>：为每个时间段开启一个独立线程（后台浏览器）同时抢，速度最快，不保证场地相邻。
+                </p>
+            </div>
+
 
             <div class="pt-4">
                  <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-full shadow-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105">
@@ -242,4 +249,3 @@
     </script>
 </body>
 </html>
-

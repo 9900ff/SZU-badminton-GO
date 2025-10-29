@@ -18,17 +18,15 @@ from web_server import ConfigServer
 
 # --- 全局变量 ---
 NEXT_DAY = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-driver = None
+# 【修改】不再有全局 driver
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAIN_PAGE_URL = 'https://ehall.szu.edu.cn/qljfwapp/sys/lwSzuCgyy/index.do#/sportVenue'
 
-def show_overlay_message(message, status='info', duration=0):
+
+def show_overlay_message(driver, message, status='info', duration=0):
     """
-    在浏览器右上角显示一个悬浮消息。
-    status: 'info'(蓝), 'success'(绿), 'warning'(黄), 'error'(红)
-    duration: 消息显示持续时间（秒），0表示永久显示
+    【修改】在指定的浏览器右上角显示一个悬浮消息。
     """
-    global driver
     if not driver: return
 
     colors = {
@@ -82,10 +80,10 @@ def show_overlay_message(message, status='info', duration=0):
         # 页面跳转时可能会执行失败，可以忽略
         pass
 
-def login(username, password):
-    """自动登录模块"""
-    global driver
-    show_overlay_message("检测到学号和密码...<br>正在执行自动登录...", status='info')
+
+def login(driver, username, password):
+    """【修改】自动登录模块，使用传入的driver"""
+    show_overlay_message(driver, "检测到学号和密码...<br>正在执行自动登录...", status='info')
     print("检测到学号和密码，正在执行自动登录...")
     try:
         username_input = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "username")))
@@ -95,18 +93,18 @@ def login(username, password):
         login_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "login_submit")))
         driver.execute_script("arguments[0].click();", login_button)
         print("登录成功！")
-        show_overlay_message("✅ 登录成功！", status='success', duration=3)
+        show_overlay_message(driver, "✅ 登录成功！", status='success', duration=3)
         # 登录后等待页面跳转到主页
         WebDriverWait(driver, 15).until(EC.url_contains("sportVenue"))
     except TimeoutException:
         print("登录超时或失败，请检查网页是否能正常访问或账号密码是否正确。")
-        show_overlay_message("❌ 登录超时或失败！<br>请检查命令行窗口。", status='error')
+        show_overlay_message(driver, "❌ 登录超时或失败！<br>请检查命令行窗口。", status='error')
         if driver: driver.quit()
         sys.exit(1)
 
 
-def find_and_click_available_court(config, preferred_court=None):
-    """在当前页面寻找并点击一个可预约的场地，返回场地信息字符串或None"""
+def find_and_click_available_court(driver, config, preferred_court=None):
+    """【修改】在传入的driver页面寻找并点击一个可预约的场地"""
     try:
         # 等待场地状态（无论是哪种）加载出来
         wait = WebDriverWait(driver, 10)  # 延长等待时间
@@ -120,7 +118,7 @@ def find_and_click_available_court(config, preferred_court=None):
 
         # --- 第一优先级，尝试粘性场地 ---
         if preferred_court:
-            show_overlay_message(f"优先尝试粘性场地:<br>{preferred_court}", status='info')
+            show_overlay_message(driver, f"优先尝试粘性场地:<br>{preferred_court}", status='info')
             print(f" -> 优先尝试粘性场地: {preferred_court}")
             for group_2 in group_2_elements:
                 element = group_2.find_element(By.CLASS_NAME, 'element')
@@ -164,10 +162,11 @@ def find_and_click_available_court(config, preferred_court=None):
         return None
 
 
-def add_companions(companions_id):
+def add_companions(driver, companions_id):
+    """【修改】在传入的driver页面添加同行人"""
     if not companions_id: return
     print("正在添加同行人...")
-    show_overlay_message("正在添加同行人...", status='info')
+    show_overlay_message(driver, "正在添加同行人...", status='info')
     try:
         wait = WebDriverWait(driver, 10)
         wait.until(EC.visibility_of_element_located((By.XPATH, "//a[text()='同行人']"))).click()
@@ -184,9 +183,10 @@ def add_companions(companions_id):
         print(f"添加同行人时发生错误: {e}")
 
 
-def pay(payment_password):
+def pay(driver, payment_password):
+    """【修改】在传入的driver页面处理支付"""
     if not payment_password: return
-    show_overlay_message("正在处理支付...", status='info')
+    show_overlay_message(driver, "正在处理支付...", status='info')
     print("正在处理支付...")
     try:
         wait = WebDriverWait(driver, 20)
@@ -213,36 +213,40 @@ def pay(payment_password):
 
 
 def initialize_driver():
-    """初始化 WebDriver"""
-    global driver
+    """【修改】初始化 WebDriver 并返回实例"""
     try:
         chromedriver_path = os.path.join(BASE_DIR, 'chromedriver-win64', 'chromedriver.exe')
         chrome_binary_path = os.path.join(BASE_DIR, 'chrome-win64', 'chrome.exe')
         if not os.path.exists(chromedriver_path) or not os.path.exists(chrome_binary_path):
             print("错误：找不到 'chromedriver-win64' 或 'chrome-win64' 文件夹。")
-            return False
+            return None  # 【修改】返回 None
         service = Service(executable_path=chromedriver_path)
         options = Options()
         options.binary_location = chrome_binary_path
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(5)
-        return True
+
+        # 【新增】为多线程优化：每个浏览器一个独立的用户数据目录
+        user_data_dir = os.path.join(BASE_DIR, "user_data", f"thread_{threading.current_thread().ident}")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+
+        driver_instance = webdriver.Chrome(service=service, options=options)
+        driver_instance.implicitly_wait(5)
+        return driver_instance  # 【修改】返回实例
     except Exception as e:
         print(f"初始化WebDriver失败: {e}")
-        return False
+        return None  # 【修改】返回 None
 
 
-def run_grabbing_process(config):
-    """接管浏览器，执行抢票的主流程 (时间优先，粘性场地)"""
-    global driver
+def run_grabbing_process(driver, config):
+    """【修改】接管指定的driver，执行抢票的主流程"""
     ACTION_TIME_STR = "12:30:00"
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
 
+    # 【修改】多线程模式下，appointment可能只有一个
     appointments_to_try = [t.strip() for t in config.get('appointment', '').split(',') if t.strip()]
     venues_to_try = [v.strip() for v in config.get('venues', '').split(',') if v.strip()]
 
     if not appointments_to_try or not venues_to_try:
-        show_overlay_message("❌ 配置错误！<br>未选择任何时间或场馆。", status='error')
+        show_overlay_message(driver, "❌ 配置错误！<br>未选择任何时间或场馆。", status='error')
         print("错误：未选择任何预约时间或场馆，程序退出。")
         return
 
@@ -252,17 +256,17 @@ def run_grabbing_process(config):
         print(f"\n配置完成，正在导航到深大登录页: {url}")
         driver.get(url)
         if config.get("username") and config.get("password"):
-            login(config["username"], config["password"])
+            login(driver, config["username"], config["password"])  # 【修改】传入 driver
         else:
-            show_overlay_message("请在当前浏览器中手动登录...<br>脚本将自动检测登录状态。", status='warning')
+            show_overlay_message(driver, "请在当前浏览器中手动登录...<br>脚本将自动检测登录状态。", status='warning')
             print("\n!!! 请在当前浏览器中手动登录 !!!")
             try:
                 WebDriverWait(driver, timeout=300).until(EC.url_contains("sportVenue"))
                 print("✅ 检测到登录成功！")
-                show_overlay_message("✅ 登录成功！", status='success', duration=3)
+                show_overlay_message(driver, "✅ 登录成功！", status='success', duration=3)
             except TimeoutException:
                 print("❌ 手动登录超时（5分钟），程序将退出。")
-                show_overlay_message("❌ 手动登录超时！", status='error')
+                show_overlay_message(driver, "❌ 手动登录超时！", status='error')
                 return
 
         # 等待抢票时间
@@ -274,7 +278,7 @@ def run_grabbing_process(config):
                 break
 
             wait_msg = f"登录成功！等待抢票...<br><b>{ACTION_TIME_STR}</b>准时开始"
-            show_overlay_message(wait_msg, status='info')
+            show_overlay_message(driver, wait_msg, status='info')  # 【修改】传入 driver
 
             if (datetime.combine(datetime.min, ACTION_TIME) - datetime.combine(datetime.min,
                                                                                now_time)).total_seconds() <= 5:
@@ -285,7 +289,7 @@ def run_grabbing_process(config):
                 time.sleep(1)
 
         # 时间优先，粘性场地循环
-        show_overlay_message("抢票开始！<br>正在刷新页面...", status='warning')
+        show_overlay_message(driver, "抢票开始！<br>正在刷新页面...", status='warning')
         driver.get(MAIN_PAGE_URL)
         print("页面刷新完毕，开始按时间优先，粘性场地策略抢票...")
 
@@ -293,14 +297,15 @@ def run_grabbing_process(config):
         failed_bookings = []
         preferred_court = None  # 粘性场地
 
-        # 外层循环是时间
+        # 【修改】多线程模式下，只循环一次（因为只有一个appointment）
+        # 单线程模式下，按顺序循环
         for appointment in appointments_to_try:
             print(f"\n=========== 开始任务: [时间] {appointment.replace('(可预约)', '')} ===========")
             task_successful = False
 
             # 内层循环是场馆
             for venue in venues_to_try:
-                show_overlay_message(f"正在尝试:<br><b>{appointment.replace('(可预约)', '')}</b><br>@ {venue}",
+                show_overlay_message(driver, f"正在尝试:<br><b>{appointment.replace('(可预约)', '')}</b><br>@ {venue}",
                                      status='warning')
                 print(f"--- 正在尝试场馆: {venue} ---")
 
@@ -312,38 +317,41 @@ def run_grabbing_process(config):
                             driver.get("about:blank")
                             driver.get(MAIN_PAGE_URL)
 
-
-                        wait = WebDriverWait(driver, 5)  # 延长整体等待时间
+                        wait = WebDriverWait(driver, 5)
                         wait.until(
                             EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['campus']}']"))).click()
-                        time.sleep(0.1)
+                        time.sleep(0.03)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{config['ball']}']"))).click()
-                        time.sleep(0.1)
+                        time.sleep(0.03)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='{NEXT_DAY}']"))).click()
-                        time.sleep(0.1)
+                        time.sleep(0.03)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{appointment}']"))).click()
-                        time.sleep(0.1)
+                        time.sleep(0.03)
                         wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[text()='{venue}']"))).click()
-                        time.sleep(0.1)
+                        time.sleep(0.03)
 
-                        court_info = find_and_click_available_court(config, preferred_court)
+                        # 【修改】传入 driver, 多线程模式下不使用粘性场地
+                        use_sticky_court = config.get("grabbing_mode", "single") == "single"
+                        court_info = find_and_click_available_court(driver, config,
+                                                                    preferred_court if use_sticky_court else None)
+
                         if court_info:
-                            WebDriverWait(driver, 10).until(
+                            WebDriverWait(driver, 2).until(
                                 EC.element_to_be_clickable((By.XPATH, "//button[text()='提交预约']"))).click()
 
                             print(" -> 正在等待预约确认页面...")
-                            WebDriverWait(driver, 10).until(
+                            WebDriverWait(driver, 5).until(
                                 EC.visibility_of_element_located((By.XPATH, "//a[text()='同行人']")))
                             print("✅ 成功提交预约！")
-                            show_overlay_message(f"✅ 成功预约:<br><b>{appointment.replace('(可预约)', '')}</b>",
+                            show_overlay_message(driver, f"✅ 成功预约:<br><b>{appointment.replace('(可预约)', '')}</b>",
                                                  status='success', duration=5)
 
                             successful_bookings[appointment] = (venue, court_info)
                             preferred_court = court_info.split('(')[0].strip()
                             task_successful = True
 
-                            add_companions(config.get("companions_id", []))
-                            pay(config["payment_password"])
+                            add_companions(driver, config.get("companions_id", []))
+                            pay(driver, config["payment_password"])
                         else:
                             print("  -> 该场馆下无可用场地。")
 
@@ -364,7 +372,6 @@ def run_grabbing_process(config):
 
             driver.get("about:blank")
             driver.get(MAIN_PAGE_URL)
-            # time.sleep(1)
 
         # 打印最终总结
         print("\n" + "=" * 25 + " 抢票总结 " + "=" * 25)
@@ -383,6 +390,11 @@ def run_grabbing_process(config):
             for item in failed_bookings:
                 print(f"   - {item.replace('(可预约)', '')}")
         print("=" * 60)
+
+        show_overlay_message(
+            driver,
+            "🎉 任务已执行完毕！<br>请查看命令行总结。",
+            status='success')
 
 
     except KeyError as e:
@@ -406,9 +418,45 @@ def load_config_from_file():
                 config[key.strip()] = value.strip()
             except ValueError:
                 pass
+
+    # 【新增】加载时就处理好同行人
+    companions_str = config.get("companions_id", "")
+    config["companions_id"] = [id.strip() for id in companions_str.split(",") if id.strip()]
     return config
 
 
+# 【新增】线程执行的包裹函数
+def run_task_wrapper(config):
+    """
+    在独立线程中执行的函数，负责创建和销毁自己的driver。
+    """
+    task_name = config.get('appointment', 'Task')
+    print(f"\n>>> 线程 {task_name} 启动... <<<")
+    task_driver = None
+    try:
+        task_driver = initialize_driver()  # 1. 创建自己的driver
+        if not task_driver:
+            raise Exception("Failed to initialize driver for this thread.")
+
+        # 2. 传入自己的driver和config执行完整流程
+        run_grabbing_process(task_driver, config)
+
+        # 3. 任务完成后，保持窗口打开，等待用户输入
+        print(f"\n----------------------------------------------------")
+        print(f"线程 {task_name} 所有任务已执行完毕！")
+        input(f">>> {task_name}: 按 Enter 键关闭此浏览器并退出线程... <<<")
+
+    except WebDriverException:
+        print(f"线程 {task_name}: 浏览器窗口被手动关闭，线程退出。")
+    except Exception as e:
+        print(f"线程 {task_name} 发生未知错误: {e}")
+    finally:
+        if task_driver:
+            task_driver.quit()  # 4. 确保driver被关闭
+        print(f">>> 线程 {task_name} 已退出。 <<<")
+
+
+# 【修改】全新的 main 函数
 if __name__ == "__main__":
     print("=" * 60 + "\n" + " " * 20 + "深大抢场助手 - 安全提示" + "\n" + "=" * 60)
     print(" > 本项目完全开源，源程序全部公开可查，不保存任何用户数据。")
@@ -423,37 +471,75 @@ if __name__ == "__main__":
     config_server.start()
     time.sleep(1)
 
-    if not initialize_driver():
-        sys.exit(1)
-
+    # 1. 启动一个临时的 "配置" 浏览器
+    config_driver = None
     try:
+        config_driver = initialize_driver()
+        if not config_driver:
+            raise Exception("无法启动配置浏览器，程序终止。")
+
         config_url = "http://127.0.0.1:8088"
         print(f"请在打开的浏览器窗口中完成配置: {config_url}")
-        driver.get(config_url)
-        config_complete_event.wait()
+        config_driver.get(config_url)
+        config_complete_event.wait()  # 等待网页端点击 "保存"
 
         latest_config = load_config_from_file()
         if not latest_config:
             raise Exception("无法加载配置，程序终止。")
 
-        run_grabbing_process(latest_config)
+        print("配置已保存。配置浏览器即将关闭...")
+        show_overlay_message(config_driver, "配置已保存！<br>正在启动抢票任务...", 'success', 3)
+        time.sleep(2)
+        config_driver.quit()
+        config_driver = None
+
+        # 2. 根据配置，决定启动单线程还是多线程
+        threads = []
+        mode = latest_config.get("grabbing_mode", "single")
+
+        if mode == 'multi':
+            print(f"\n--- 检测到【多线程并发模式】---")
+            appointments_to_try = [t.strip() for t in latest_config.get('appointment', '').split(',') if t.strip()]
+            if not appointments_to_try:
+                print("错误：多线程模式下未选择任何时间。")
+                sys.exit(1)
+
+            print(f"将为 {len(appointments_to_try)} 个时间段分别启动独立浏览器...")
+
+            for appt in appointments_to_try:
+                # 3. 为每个时间段创建一个专属的config
+                sub_config = latest_config.copy()
+                sub_config['appointment'] = appt  # 关键：只保留一个时间
+
+                # 4. 创建并启动线程
+                t = threading.Thread(target=run_task_wrapper, args=(sub_config,))
+                t.start()
+                threads.append(t)
+                time.sleep(1)  # 错峰启动浏览器
+
+        else:
+            print(f"\n--- 检测到【单线程模式】---")
+            print("将启动一个浏览器执行所有任务...")
+            # 5. 单线程模式也使用 wrapper，保持逻辑一致
+            t = threading.Thread(target=run_task_wrapper, args=(latest_config,))
+            t.start()
+            threads.append(t)
+
+        # 6. 等待所有线程（无论是1个还是N个）执行完毕
+        for t in threads:
+            t.join()
 
         print("\n----------------------------------------------------")
-        print("所有任务已执行完毕！浏览器将保持打开状态以便你查看结果。")
-        show_overlay_message(
-            "🎉 所有任务已执行完毕！<br>请查看命令行总结。",
-            status='success')
-        input(">>> 按 Enter 键关闭浏览器并退出... <<<")
+        print("所有抢票任务均已退出。")
 
     except WebDriverException:
         print("浏览器窗口被手动关闭，程序退出。")
     except Exception as e:
         print(f"主程序发生未知错误: {e}")
     finally:
-        if driver:
-            driver.quit()
-            print("浏览器已关闭。")
+        if config_driver:  # 确保配置driver被关闭
+            config_driver.quit()
+            print("配置浏览器已关闭。")
 
     print("\n程序已退出。")
     os._exit(0)
-
