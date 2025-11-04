@@ -41,7 +41,7 @@
                 <ul class="list-disc list-inside mt-2 space-y-1">
                     <li>本项目完全开源，源程序公开可查，<strong class="font-semibold">不保存任何用户数据</strong>。</li>
                     <li>为防止在传播过程被恶意修改，<strong class="font-semibold text-blue-600">推荐选择【手动登录】</strong>。</li>
-                    <li>请务必保护好自己的密码！</li>
+                    <li>强烈建议关闭系统代理，确保校园网速度(不懂这条不用管)</li>
                     <li class="mt-2">请从唯一官方地址下载本程序：<br><a href="https://github.com/9900ff/SZU-badminton-GO" target="_blank" class="text-indigo-600 hover:underline break-all">https://github.com/9900ff/SZU-badminton-GO</a></li>
                 </ul>
             </div>
@@ -49,8 +49,8 @@
             <div>
                 <label for="login-method" class="block text-sm font-medium text-gray-700">登录方式</label>
                 <select id="login-method" name="login_method" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <option value="auto" {% if config.get('username') or not config %}selected{% endif %}>自动登录</option>
                     <option value="manual" {% if not config.get('username') and config %}selected{% endif %}>手动登录 (推荐)</option>
+                    <option value="auto" {% if config.get('username') or not config %}selected{% endif %}>自动登录</option>
                 </select>
             </div>
 
@@ -80,17 +80,17 @@
                     <option value="multithread" {% if config.get('grabbing_mode') == 'multithread' %}selected{% endif %}>多线程模式 (速度优先)</option>
                 </select>
                 <p class="mt-2 text-xs text-gray-500">
-                    单线程：按时间顺序一个一个抢，抢到A后优先抢A旁边的场地。<br>
-                    <strong class="text-indigo-600">多线程并发（推荐）</strong>：为每个时间段开启一个独立线程（后台浏览器）同时抢，速度最快，不保证场地相邻。
+                    <strong class="text-indigo-600">单线程模式</strong>：按时间顺序一个一个抢，最大程度确保在同一场地。<br>
+                    <strong class="text-indigo-600">多线程模式</strong>：每个时间段都开启单独一个浏览器抢，速度快，不保证场地相邻。<br>
                 </p>
             </div>
 
             <div id="multithread-warning" class="hidden bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-lg text-sm">
                 <p class="font-bold">多线程模式说明：</p>
                 <ul class="list-disc list-inside mt-2">
-                    <li>此模式将为多个时间段**同时**抢票，速度更快，目标是至少抢中一个。</li>
-                    <li>**不使用**“粘性场地”策略，不保证抢到的场地连续。</li>
-                    <li>此为实验性功能，可能会不稳定。</li>
+                    <li>抢多个时间段才使用多线程模式。</li>
+                    <li>此模式下推荐手动登录多个账号。</li>
+                    <li>使用同一账号可能会显示“操作频繁”而导致失败。</li>
                 </ul>
             </div>
 
@@ -108,7 +108,7 @@
                     <label for="sport" class="block text-sm font-medium text-gray-700">运动项目</label>
                     <select id="sport" name="ball" class="custom-select mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option {% if config.get('ball') == '羽毛球' %}selected{% endif %}>羽毛球</option>
-                        <option disabled>其他运动项目需求不大，暂不开发</option>
+                        <option disabled>待开发中....</option>
                     </select>
                 </div>
             </div>
