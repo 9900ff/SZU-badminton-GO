@@ -17,7 +17,7 @@
 ## 用户配置界面
 **可以选择无需账号密码、无需支付密码，确保账号安全**
 
-![配置界面](./src/templates/配置界面.jpg)
+<img src="./src/templates/配置界面.jpg" alt="配置界面" width="300" style="border:2px solid #ccc; border-radius:6px;">
 
 ## 更新说明
 
