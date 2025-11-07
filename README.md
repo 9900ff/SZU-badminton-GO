@@ -20,6 +20,8 @@
 <img src="./src/templates/配置界面.jpg" alt="配置界面" width="300" style="border:2px solid #ccc; border-radius:6px;">
 
 ## 更新说明
+### v1.4.2
+修复了长时间挂机抢票，网页休眠加载慢的bug
 
 ### v1.4.1
 小更新，修改了用户配置界面的功能说明

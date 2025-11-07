@@ -234,7 +234,7 @@ def initialize_driver():
 
 def run_grabbing_process(driver, config):
     """【修改】接管指定的driver，执行抢票的主流程"""
-    ACTION_TIME_STR = "12:30:00"
+    ACTION_TIME_STR = "11:46:00"
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
 
     # 【修改】多线程模式下，appointment可能只有一个
@@ -268,21 +268,42 @@ def run_grabbing_process(driver, config):
         # 等待抢票时间
         print(f"\n登录流程完毕，等待到达 {ACTION_TIME} 开始抢票...")
         while True:
-            now_time = datetime.now().time()
-            if now_time >= ACTION_TIME:
+            now = datetime.now().time()
+            now_dt = datetime.combine(datetime.min, now)
+            action_dt = datetime.combine(datetime.min, ACTION_TIME)
+            delta = (action_dt - now_dt).total_seconds()
+
+            # 到点退出
+            if delta <= 0:
                 sys.stdout.write("\r" + " " * 80 + "\r")
                 break
 
+            # 显示提示信息
             wait_msg = f"登录成功！等待抢票...<br><b>{ACTION_TIME_STR}</b>准时开始"
-            show_overlay_message(driver, wait_msg, status='info')  # 【修改】传入 driver
+            show_overlay_message(driver, wait_msg, status='info')
 
-            if (datetime.combine(datetime.min, ACTION_TIME) - datetime.combine(datetime.min,
-                                                                               now_time)).total_seconds() <= 5:
-                sys.stdout.write(f"\r进入最后 5 秒倒计时，高频检查中...")
-                time.sleep(0.01)
-            else:
-                sys.stdout.write(f"\r当前时间: {now_time.strftime('%H:%M:%S')}, 等待中...")
+            # ✅ 阶段 1：距离 ACTION_TIME >= 10 秒
+            if delta >= 10:
+                sys.stdout.write(f"\r当前时间: {now.strftime('%H:%M:%S')}")
+
+                # ⭐⭐ 到达“刚好 10 秒前”时先刷新页面 ⭐⭐
+                if 10 <= delta < 11:  # delta 从 10.9 → 10.0 时满足
+                    print("\n⭐ 还有10秒，刷新当前页面...")
+                    driver.get("about:blank")
+                    driver.get(MAIN_PAGE_URL)
+
                 time.sleep(1)
+                continue
+
+            # ✅ 阶段 2：5 秒 ≤ delta < 10 秒
+            if delta >= 5:
+                sys.stdout.write(f"\r当前时间: {now.strftime('%H:%M:%S')}，等待 >=5 秒 阶段...")
+                time.sleep(1)
+                continue
+
+            # ✅ 阶段 3：0 < delta < 5 秒 —— 高频检查
+            sys.stdout.write(f"\r进入最后 5 秒倒计时，高频检查中... 剩余 {delta:.2f} 秒")
+            time.sleep(0.01)
 
         # 时间优先，粘性场地循环
         show_overlay_message(driver, "抢票开始！<br>正在刷新页面...", status='warning')
