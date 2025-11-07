@@ -468,8 +468,8 @@ def run_task_wrapper(config):
     except Exception as e:
         print(f"线程 {task_name} 发生未知错误: {e}")
     finally:
-        if task_driver:
-            task_driver.quit()  # 4. 确保driver被关闭
+        # if task_driver:
+        #     task_driver.quit()  # 4. 确保driver被关闭
         print(f">>> 线程 {task_name} 已退出。 <<<")
 
 

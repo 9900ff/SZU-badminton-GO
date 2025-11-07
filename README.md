@@ -20,6 +20,10 @@
 <img src="./src/templates/配置界面.jpg" alt="配置界面" width="300" style="border:2px solid #ccc; border-radius:6px;">
 
 ## 更新说明
+### v1.4.3
+禁用了终端的选择模式，防止用户点击cmd终端内容而导致任务阻塞
+优化了任务流程，抢票结束后回到预定界面
+
 ### v1.4.2
 修复了长时间挂机抢票，网页休眠加载慢的bug
 
