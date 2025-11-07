@@ -234,7 +234,7 @@ def initialize_driver():
 
 def run_grabbing_process(driver, config):
     """【修改】接管指定的driver，执行抢票的主流程"""
-    ACTION_TIME_STR = "11:46:00"
+    ACTION_TIME_STR = "12:30:00"
     ACTION_TIME = datetime.strptime(ACTION_TIME_STR, "%H:%M:%S").time()
 
     # 【修改】多线程模式下，appointment可能只有一个
